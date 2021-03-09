@@ -52,17 +52,11 @@ optional arguments:
 ```
 
 
-Tested on Apache Hadoop 2.7.3
+Tested on Apache Hadoop 3.1.1
 # hadoop_exporter
 
 # Usage
-You can run each `Collector` under directory `cmd/`, just like:
-```
-cd hadoop_exporter/cmd
-python hdfs_namenode.py  -h
-# input the params the script asked.
-```
-Or if you want to run the entire project, you should have an webhook/api with url = `http://<rest_api_host_and_port>/alert/getservicesbyhost` to provide the jmx urls: the content in the webhook or api should be like:
+要运行整个监控，需要自己来搭建一个Web服务器，并且提供http://<rest_api_host_and_port>/cluster_config.json访问URL，该URL响应给浏览器一个json文件。包含了集群的各个节点。
 ```
 {
     "cluster_name1": [
@@ -203,14 +197,9 @@ Or if you want to run the entire project, you should have an webhook/api with ur
     ]
 }
 ```
-Then you can run:
-```
-# -s means the rest api or webhook url mentioned above, should be in <host:port> format, no schema and path( I know it's ugly).
-# -P (upper) means hadoop_exporter should export metrics in this port. you can get metrics from <http://hostname:9131/metrics>
-python hadoop_exporter.py -s "<rest_api_host_and_port>" -P 9131
-```
 
-**One more thing**:
-you should run all this steps in **all hadoop nodes**.
+> -s参数表示通过HTTP方式读取集群的JMX端口URL。就是Web服务器的访问路径。大家可以使用apache、nginx或者tomcat等web容器来搭建。格式为：host:port。
+  -P（大写）参数表示prometheus拉取指标数据的端口。
 
-MAYBE I'll improve this project for common use.
+> 注意
+> 需要在集群中的所有节点运行，否则prometheus将只能监测到一个节点的指标数据。
