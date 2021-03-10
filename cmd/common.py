@@ -17,35 +17,40 @@ logger = get_module_logger(__name__)
 
 class MetricCol(object):
     '''
-    MetricCol is a super class of all kinds of MetricsColleter classes. It setup common params like cluster, url, component and service.
+    MetricCol是所有MetricsCollector的超类，它构建了写通用的参数，例如：cluster、url、component、service等。
     '''
     def __init__(self, cluster, url, component, service):
         '''
-        @param cluster: Cluster name, registered in the config file or ran in the command-line.
-        @param url: All metrics are scraped in the url, corresponding to each component. 
-                    e.g. "hdfs" metrics can be scraped in http://ip:50070/jmx.
-                         "resourcemanager" metrics can be scraped in http://ip:8088/jmx.
-        @param component: Component name. e.g. "hdfs", "resourcemanager", "mapreduce", "hive", "hbase".
-        @param service: Service name. e.g. "namenode", "resourcemanager", "mapreduce".
+        @param cluster: 集群名称, 在配置文件配置或者通过命令行设置.
+        @param url: 每个组件暴露指标的URL。例如：通过http://ip:9870/jmx可以获取hdfs集群的指标。
+                    而通过http://ip:8088/jmx可以获取ResourceManager的指标。
+        @param component: 组件名称. 例如："hdfs", "resourcemanager", "mapreduce", "hive", "hbase".
+        @param service: 服务名称. 例如："namenode", "resourcemanager", "mapreduce".
         '''
         self._cluster = cluster
+        # 删除末尾的/
         self._url = url.rstrip('/')
         self._component = component
+        # 指标前缀, 以 hadoop_组件名_服务名 命名
         self._prefix = 'hadoop_{0}_{1}'.format(component, service)
-
+        # 获取以服务名命名的所有JSON文件列表，例如：namenode，会将namenode中的所有文件夹中的json文件加载
+        # 获取到的是文件名
         self._file_list = utils.get_file_list(service)
+        # 获取common目录中的所有json文件
         self._common_file = utils.get_file_list("common")
+        # 整合所有json文件
         self._merge_list = self._file_list + self._common_file
-
+        # 用于保存指标对象
         self._metrics = {}
         for i in range(len(self._file_list)):
+            # 设置文件名，并读取对应的指标配置文件（JSON文件）
             self._metrics.setdefault(self._file_list[i], utils.read_json_file(service, self._file_list[i]))
 
     def collect(self):
         '''
-        This method needs to be override by all subclasses.
+        所有的Collector都要实现collect方法.
 
-        # request_data from url/jmx
+        # 从URL/JMX读取数据
         metrics = get_metrics(self._base_url)
         beans = metrics['beans']
 
@@ -65,17 +70,20 @@ class MetricCol(object):
 
 def common_metrics_info(cluster, beans, component, service):
     '''
-    A closure function was setup to scrape the SAME metrics all services have.
-    @return a closure variable named common_metrics, which contains all the metrics that scraped from the given beans.
+    为所有服务实现的处理相同的指标数据定义的闭包。
+    @return a 名为common_metrics的闭包, 从指定的beans中维度处理后的所有指标。
     '''
     tmp_metrics = {}
     common_metrics = {}
     _cluster = cluster
     _prefix = 'hadoop_{0}_{1}'.format(component, service)
+    # 读取common下的所有json指标配置
     _metrics_type = utils.get_file_list("common")
 
     for i in range(len(_metrics_type)):
         common_metrics.setdefault(_metrics_type[i], {})
+        # 加载所有指标到字典
+        # 这里取名为tmp，因为它总是会被添加到具体组件实现中
         tmp_metrics.setdefault(_metrics_type[i], utils.read_json_file("common", _metrics_type[i]))
 
 

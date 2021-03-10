@@ -19,49 +19,65 @@ logger = get_module_logger(__name__)
 class NameNodeMetricCollector(MetricCol):
 
     def __init__(self, cluster, url):
+        # 手动调用父类初始化，传入cluster名称、jmx url、组件名称、服务名称
+        # 注意：服务名称应与JSON配置的文件夹名称保持一致
         MetricCol.__init__(self, cluster, url, "hdfs", "namenode")
         self._hadoop_namenode_metrics = {}
         for i in range(len(self._file_list)):
+            # 读取JSON配置文件，设置每个导出指标对象
             self._hadoop_namenode_metrics.setdefault(self._file_list[i], {})
 
 
     def collect(self):
-        # Request data from ambari Collect Host API
-        # Request exactly the System level information we need from node
-        # beans returns a type of 'List'
+        # 发送HTTP请求从JMX URL中获取指标数据。
+        # 获取JMX中对应bean JSON数组。
 
         try:
+            # 发起HTTP请求JMX JSON数据
             beans = utils.get_metrics(self._url)
         except:
             logger.info("Can't scrape metrics from url: {0}".format(self._url))
             pass
         else:
-            # set up all metrics with labels and descriptions.
+            # 设置监控需要关注的每个MBean，并设置好指标对应的标签以及描述
             self._setup_metrics_labels(beans)
     
-            # add metric value to every metric.
+            # 设置每个指标值
             self._get_metrics(beans)
     
-            # update namenode metrics with common metrics
+            # 将通用的指标更新到NameNode对应的指标中
             common_metrics = common_metrics_info(self._cluster, beans, "hdfs", "namenode")
             self._hadoop_namenode_metrics.update(common_metrics())
     
+            # 遍历每一个指标分类（包含NameNode以及Common的指标分类）
+            # 返回每一个指标和标签
             for i in range(len(self._merge_list)):
                 service = self._merge_list[i]
                 for metric in self._hadoop_namenode_metrics[service]:
                     yield self._hadoop_namenode_metrics[service][metric]
 
     def _setup_nnactivity_labels(self):
+        # 记录是否已处理（1表示需要处理，0表示无需处理）
         num_namenode_flag,avg_namenode_flag,ops_namenode_flag = 1,1,1
+        # 遍历NameNodeActivity MBean对应的指标
         for metric in self._metrics['NameNodeActivity']:
+            # 对指标名称进行处理（驼峰式转下划线分隔名称）
             snake_case = re.sub('([a-z0-9])([A-Z])', r'\1_\2', metric).lower()
+            # 提前定义预先的label
             label = ["cluster", "method"]
+            # 按照MBean中的后缀做分类，生成指标名称、以及对应的label
+            # 例如：hadoop_hdfs_namenode_nnactivity_method_avg_time_milliseconds{cluster="hadoop-ha",method="BlockReport"}
             if "NumOps" in metric:
                 if num_namenode_flag:
                     key = "MethodNumOps"
+                    # 构建Guage类型指标
+                    # 第一个参数为指标名称
+                    # 第二个参数为指标描述信息
+                    # 第三个参数为标签
                     self._hadoop_namenode_metrics['NameNodeActivity'][key] = GaugeMetricFamily("_".join([self._prefix, "nnactivity_method_ops_total"]),
                                                                                                "Total number of the times the method is called.",
                                                                                                labels=label)
+                    # 设置为0，表示下一次同样类型的指标不做处理
                     num_namenode_flag = 0
                 else:
                     continue
@@ -75,6 +91,7 @@ class NameNodeMetricCollector(MetricCol):
                 else:
                     continue
             else:
+                # 如果没有进行指标分类维度化，则统一放到nnactivity_operations_total中存储
                 if ops_namenode_flag:
                     ops_namenode_flag = 0
                     key = "Operations"
@@ -198,7 +215,9 @@ class NameNodeMetricCollector(MetricCol):
 
     def _setup_metrics_labels(self, beans):
         # The metrics we want to export.
+        # 遍历每一个MBean，设置需要关注的Label
         for i in range(len(beans)):
+            # 只处理指定的MBean
             if 'NameNodeActivity' in beans[i]['name']:
                 self._setup_nnactivity_labels()
     
@@ -216,9 +235,13 @@ class NameNodeMetricCollector(MetricCol):
 
 
     def _get_nnactivity_metrics(self, bean):
+        # 遍历对应分类的所有指标
         for metric in self._metrics['NameNodeActivity']:
+            # 不同的指标类别进行不同处理
             if "NumOps" in metric:
+                # 获取method操作Label
                 method = metric.split('NumOps')[0]
+                # 设置Label
                 label = [self._cluster, method]
                 key = "MethodNumOps"
             elif "AvgTime" in metric:
@@ -232,6 +255,8 @@ class NameNodeMetricCollector(MetricCol):
                     method = metric
                 label = [self._cluster, method]                    
                 key = "Operations"
+
+            # 调用promethues的add_metric，设置label值和metric值
             self._hadoop_namenode_metrics['NameNodeActivity'][key].add_metric(label,
                                                                               bean[metric] if metric in bean else 0)
 
@@ -316,7 +341,9 @@ class NameNodeMetricCollector(MetricCol):
 
 
     def _get_metrics(self, beans):
+        # 遍历每一个MBean
         for i in range(len(beans)):
+            # 根据每个MBean进行相应处理
             if 'NameNodeActivity' in beans[i]['name']:
                 self._get_nnactivity_metrics(beans[i])
             if 'StartupProgress' in beans[i]['name']:
