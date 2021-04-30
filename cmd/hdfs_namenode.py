@@ -22,16 +22,18 @@ class NameNodeMetricCollector(MetricCol):
         # 手动调用父类初始化，传入cluster名称、jmx url、组件名称、服务名称
         # 注意：服务名称应与JSON配置的文件夹名称保持一致
         MetricCol.__init__(self, cluster, url, "hdfs", "namenode")
+        self._clear_init()
+
+    def _clear_init(self):
         self._hadoop_namenode_metrics = {}
         for i in range(len(self._file_list)):
             # 读取JSON配置文件，设置每个导出指标对象
             self._hadoop_namenode_metrics.setdefault(self._file_list[i], {})
 
-
     def collect(self):
+        self._clear_init()
         # 发送HTTP请求从JMX URL中获取指标数据。
         # 获取JMX中对应bean JSON数组。
-
         try:
             # 发起HTTP请求JMX JSON数据
             beans = utils.get_metrics(self._url)

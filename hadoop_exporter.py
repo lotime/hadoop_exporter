@@ -37,7 +37,7 @@ def register_prometheus(rest_url):
     try:
         namenode_flag, datanode_flag, journalnode_flag, resourcemanager_flag, nodemanager_flag, hbase_master_flag, hbase_regionserver_flag, historyserver_flag, hive_server_interactive_flag, hive_llap_flag = 1,1,1,1,1,1,1,1,1,1
         while True:
-            url = 'http://{0}/alert/getservicesbyhost'.format(rest_url)
+            url = 'http://{0}/cluster_config.json'.format(rest_url)
             node_info = utils.get_node_info(url)
             if node_info:
                 for cluster, info in node_info.items():

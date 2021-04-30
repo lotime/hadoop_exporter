@@ -20,12 +20,15 @@ class HiveServerMetricCollector(MetricCol):
 
     def __init__(self, cluster, url):
         MetricCol.__init__(self, cluster, url, "hive", "hiveserver2")
+        self._clear_init()
+
+    def _clear_init(self):
         self._hadoop_hiveserver2_metrics = {}
         for i in range(len(self._file_list)):
             self._hadoop_hiveserver2_metrics.setdefault(self._file_list[i], {})
 
-
     def collect(self):
+        self._clear_init()
         # Request data from ambari Collect Host API
         # Request exactly the System level information we need from node
         # beans returns a type of 'List'
