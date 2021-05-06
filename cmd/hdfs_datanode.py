@@ -170,6 +170,7 @@ class DataNodeMetricCollector(MetricCol):
                             value = 1.0
                         else:
                             value = 0.0
+                        self._hadoop_datanode_metrics['DataNodeInfo'][metric].add_metric(label, value)
                 else:
                     continue
             elif 'VolumeInfo' in metric:
@@ -181,12 +182,16 @@ class DataNodeMetricCollector(MetricCol):
                             state = key
                             label = [self._cluster, version, path, state]
                             value = val
+                            if isinstance(value,str):
+                                continue
+                            else:
+                                self._hadoop_datanode_metrics['DataNodeInfo'][metric].add_metric(label, value)
                 else:
                     continue
             else:
                 label = [self._cluster, version]
                 value = bean[metric]
-            self._hadoop_datanode_metrics['DataNodeInfo'][metric].add_metric(label, value)
+                self._hadoop_datanode_metrics['DataNodeInfo'][metric].add_metric(label, value)
 
     def _get_dnactivity_metrics(self, bean):
         for metric in self._metrics['DataNodeActivity']:
