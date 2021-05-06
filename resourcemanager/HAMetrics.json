@@ -1,0 +1,3 @@
+{
+    "HAState": "(HA-only) Current state of the RM,0 is standby,1 is active"
+}

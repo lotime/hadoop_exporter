@@ -18,14 +18,14 @@ logger = get_module_logger(__name__)
 class ResourceManagerMetricCollector(MetricCol):
 
     NODE_STATE = {
-        'NEW': 1, 
-        'RUNNING': 2, 
-        'UNHEALTHY': 3, 
-        'DECOMMISSIONED': 4, 
-        'LOST': 5, 
+        'NEW': 1,
+        'RUNNING': 2,
+        'UNHEALTHY': 3,
+        'DECOMMISSIONED': 4,
+        'LOST': 5,
         'REBOOTED': 6,
     }
-    
+
     def __init__(self, cluster, url):
         MetricCol.__init__(self, cluster, url, "yarn", "resourcemanager")
         self._clear_init()
@@ -49,14 +49,14 @@ class ResourceManagerMetricCollector(MetricCol):
         else:
             # set up all metrics with labels and descriptions.
             self._setup_metrics_labels(beans)
-    
+
             # add metric value to every metric.
             self._get_metrics(beans)
-    
+
             # update namenode metrics with common metrics
             common_metrics = common_metrics_info(self._cluster, beans, "yarn", "resourcemanager")
             self._hadoop_resourcemanager_metrics.update(common_metrics())
-    
+
             for i in range(len(self._merge_list)):
                 service = self._merge_list[i]
                 for metric in self._hadoop_resourcemanager_metrics[service]:
@@ -78,7 +78,7 @@ class ResourceManagerMetricCollector(MetricCol):
            self._hadoop_resourcemanager_metrics['RMNMInfo'][metric] = GaugeMetricFamily(name,
                                                                                         self._metrics['RMNMInfo'][metric],
                                                                                         labels=label)
-    
+
     def _setup_queue_labels(self):
         running_flag = 1
         for metric in self._metrics['QueueMetrics']:
@@ -139,16 +139,29 @@ class ResourceManagerMetricCollector(MetricCol):
             self._hadoop_resourcemanager_metrics['ClusterMetrics'][key] = GaugeMetricFamily("_".join([self._prefix, name]),
                                                                                              descriptions,
                                                                                              labels=label)
-    
+
+    def _setup_ha_metrics_labels(self):
+        for metric in self._metrics['HAMetrics']:
+            if "HAState" in metric:
+                label = ["cluster", "host"]
+                key = metric
+                name = "ha_node_state"
+                descriptions = self._metrics['HAMetrics'][metric]
+                self._hadoop_resourcemanager_metrics['HAMetrics'][key] = GaugeMetricFamily(
+                    "_".join([self._prefix, name]), descriptions, labels=label)
+
     def _setup_metrics_labels(self, beans):
         # The metrics we want to export.
         for i in range(len(beans)):
             if 'RMNMInfo' in beans[i]['name']:
                 self._setup_rmnminfo_labels()
             if 'QueueMetrics' in self._metrics:
-                self._setup_queue_labels()    
+                self._setup_queue_labels()
             if 'ClusterMetrics' in self._metrics:
-                self._setup_cluster_labels()                    
+                self._setup_cluster_labels()
+            # 添加高可用相关监控数据
+            if 'Runtime' in beans[i]['name']:
+                self._setup_ha_metrics_labels()
 
 
     def _get_rmnminfo_metrics(self, bean):
@@ -202,18 +215,34 @@ class ResourceManagerMetricCollector(MetricCol):
                 continue
             self._hadoop_resourcemanager_metrics['ClusterMetrics'][key].add_metric(label, bean[metric] if metric in bean else 0)
 
+    def _get_ha_metrics(self, bean):
+        for metric in self._metrics['HAMetrics']:
+            if "HAState" in metric:
+                key = metric
+                active = bean['Name'].split("@")[1]
+                cur = utils.get_hostname()
+                label = [self._cluster, cur]
+                if active == cur:
+                    value = 1.0
+                else:
+                    value = 0.0
+                self._hadoop_resourcemanager_metrics['HAMetrics'][metric].add_metric(label, value)
+
     def _get_metrics(self, beans):
 
         for i in range(len(beans)):
             if 'RMNMInfo' in beans[i]['name']:
                 self._get_rmnminfo_metrics(beans[i])
-                    
+
             if 'QueueMetrics' in beans[i]['name'] and 'root' == beans[i]['tag.Queue']:
                 self._get_queue_metrics(beans[i])
-                    
+
             if 'ClusterMetrics' in beans[i]['name']:
                 self._get_cluster_metrics(beans[i])
-                    
+            # 添加高可用相关监控数据
+            if 'Runtime' in beans[i]['name']:
+                self._get_ha_metrics(beans[i])
+
 
 def main():
     try:
