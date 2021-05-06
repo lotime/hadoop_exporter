@@ -218,7 +218,6 @@ class ResourceManagerMetricCollector(MetricCol):
     def _get_ha_metrics(self, bean):
         for metric in self._metrics['HAMetrics']:
             if "HAState" in metric:
-                key = metric
                 active = bean['Name'].split("@")[1]
                 cur = utils.get_hostname()
                 label = [self._cluster, cur]
